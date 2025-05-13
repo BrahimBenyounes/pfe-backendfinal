@@ -99,72 +99,58 @@ pipeline {
        
 
 
+   def services = [
+    "discovery-service", "gateway-service", "product-service",
+    "formation-service", "order-service", "notification-service",
+    "login-service", "contact-service"
+]
 
-        stage('Build Docker Images') {
-            steps {
-                script {
-                    def services = [
-                        "discovery-service", "gateway-service", "product-service",
-                        "formation-service", "order-service", "notification-service",
-                        "login-service", "contact-service"
-                    ]
-
-                    def buildSteps = services.collectEntries { service ->
-                        ["${service}": {
-                            dir(service) {
-                                bat "docker build -t brahim20255/${service}:${BUILD_TAG} -t brahim20255/${service}:latest ."
-                            }
-                        }]
-                    }
-
-                    parallel buildSteps
+stage('Build Docker Images') {
+    steps {
+        script {
+            services.each { serviceName ->
+                dir(serviceName) {
+                    bat "docker build -t ${serviceName}:${DOCKER_IMAGE_VERSION} ."
                 }
             }
         }
+    }
+}
 
-        stage('Deploy Microservices') {
-            steps {
-                script {
-                    bat "docker compose -f ${DOCKER_COMPOSE_FILE} down"
-                    bat "docker compose -f ${DOCKER_COMPOSE_FILE} up -d"
-                }
-            }
+stage('Deploy Microservices') {
+    steps {
+        script {
+            bat "docker compose -f ${DOCKER_COMPOSE_FILE} down"
+            bat "docker compose -f ${DOCKER_COMPOSE_FILE} up -d"
         }
+    }
+}
 
-        stage('Push Docker Images to Docker Hub') {
-            steps {
-                script {
-                    withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', passwordVariable: 'DOCKER_HUB_PASSWORD', usernameVariable: 'DOCKER_HUB_USERNAME')]) {
+stage('Push Docker Images to Docker Hub') {
+    steps {
+        script {
+            withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', passwordVariable: 'DOCKER_HUB_PASSWORD', usernameVariable: 'DOCKER_HUB_USERNAME')]) {
+                bat "echo ${DOCKER_HUB_PASSWORD} | docker login -u ${DOCKER_HUB_USERNAME} --password-stdin"
+                services.each { serviceName ->
+                    def localTag = "${serviceName}:${DOCKER_IMAGE_VERSION}"
+                    def remoteTagVersion = "${DOCKER_HUB_USERNAME}/${serviceName}:${DOCKER_IMAGE_VERSION}"
+                    def remoteTagLatest = "${DOCKER_HUB_USERNAME}/${serviceName}:latest"
 
-                        // Secure Docker login
-                        bat """
-                            echo ${DOCKER_HUB_PASSWORD} | docker login -u ${DOCKER_HUB_USERNAME} --password-stdin
-                        """
+                    bat "docker tag ${localTag} ${remoteTagVersion}"
+                    bat "docker tag ${localTag} ${remoteTagLatest}"
 
-                        def services = [
-                            "discovery-service", "gateway-service", "product-service",
-                            "formation-service", "order-service", "notification-service",
-                            "login-service", "contact-service"
-                        ]
-
-                        // Sequential Push with retry
-                        for (service in services) {
-                            def remoteTag = "brahim20255/${service}:latest"
-
-                            catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
-                                retry(3) {
-                                    echo "Pushing ${remoteTag} (attempt)..."
-                                    bat "docker push ${remoteTag}"
-                                    sleep 5 // Small delay between pushes
-                                }
-                            }
+                    catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                        retry(3) {
+                            bat "docker push ${remoteTagVersion}"
+                            bat "docker push ${remoteTagLatest}"
                         }
                     }
                 }
             }
-        
-    
+        }
+    }
 }
+
 
 
         stage('Deploy to Kubernetes') {
