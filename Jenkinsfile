@@ -98,8 +98,7 @@ pipeline {
      
        
 
-
-         stage('Build Docker Images') {
+            stage('Build Docker Images') {
             steps {
                 script {
                     def services = [
@@ -129,23 +128,47 @@ pipeline {
             steps {
                 script {
                     withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', passwordVariable: 'DOCKER_HUB_PASSWORD', usernameVariable: 'DOCKER_HUB_USERNAME')]) {
-                        bat "docker login -u ${DOCKER_HUB_USERNAME} -p ${DOCKER_HUB_PASSWORD}"
+
+                        // Secure login
+                        bat "echo ${DOCKER_HUB_PASSWORD} | docker login -u ${DOCKER_HUB_USERNAME} --password-stdin"
+
                         def services = [
                             "discovery-service", "gateway-service", "product-service",
                             "formation-service", "order-service", "notification-service",
                             "login-service", "contact-service"
                         ]
+
                         services.each { serviceName ->
                             def localTag = "${serviceName}:${DOCKER_IMAGE_VERSION}"
                             def remoteTag = "${DOCKER_HUB_USERNAME}/${serviceName}:${DOCKER_IMAGE_VERSION}"
+                            def remoteLatest = "${DOCKER_HUB_USERNAME}/${serviceName}:latest"
+
                             bat "docker tag ${localTag} ${remoteTag}"
-                            bat "docker push ${remoteTag}"
+                            bat "docker tag ${localTag} ${remoteLatest}"
+
+                            catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                                retry(3) {
+                                    echo "Pushing ${remoteTag}..."
+                                    bat "docker push ${remoteTag}"
+
+                                    echo "Pushing ${remoteLatest}..."
+                                    bat "docker push ${remoteLatest}"
+                                }
+                            }
                         }
                     }
                 }
             }
         }
+    }
 
+    post {
+        success {
+            echo ' Build and Deployment completed successfully!'
+        }
+        failure {
+            echo ' Build or Deployment failed.'
+        }
 
 
         stage('Deploy to Kubernetes') {
