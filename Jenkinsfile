@@ -7,6 +7,7 @@ pipeline {
     }
 
     environment {
+        DOCKER_IMAGE_VERSION = "v1.0.${BUILD_NUMBER}"
         DOCKER_COMPOSE_FILE = 'docker-compose.yml'
         DOCKER_HUB_USERNAME = 'brahim20255'
         DOCKER_HUB_PASSWORD = 'Lifeisgoodbrahim@@'
@@ -97,8 +98,15 @@ pipeline {
 
      
        
+ 
+  
 
-            stage('Build Docker Images') {
+    stages {
+   
+
+
+
+        stage('Build Docker Images') {
             steps {
                 script {
                     def services = [
@@ -159,16 +167,9 @@ pipeline {
                     }
                 }
             }
-        }
-    }
+              }
+ 
 
-    post {
-        success {
-            echo ' Build and Deployment completed successfully!'
-        }
-        failure {
-            echo ' Build or Deployment failed.'
-        }
 
 
         stage('Deploy to Kubernetes') {
