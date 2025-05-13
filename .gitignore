@@ -1,0 +1,30 @@
+# 📁 Fichiers de configuration IntelliJ IDEA
+.idea/
+
+
+
+# 🧼 Fichiers de logs
+*.log
+
+# 📤 Dossier des fichiers uploadés (mais garder le dossier vide avec .gitkeep)
+uploads/*
+!uploads/.gitkeep
+
+# ⚙️ Fichiers Maven Wrapper (optionnel)
+.mvn/
+mvnw
+mvnw.cmd
+
+# 🔒 Fichiers d'environnement (variables sensibles)
+.env
+*.env
+
+# 🗃️ Fichiers systèmes inutiles
+.DS_Store
+Thumbs.db
+
+# 🧱 Fichiers compilés Java
+*.class
+
+# 🐳 Fichiers spécifiques à Docker
+docker-compose-config/mysql-pfe-service/mysql.sock
