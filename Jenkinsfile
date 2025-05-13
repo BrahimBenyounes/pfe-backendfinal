@@ -10,7 +10,7 @@ pipeline {
         DOCKER_IMAGE_VERSION = "v1.0.${BUILD_NUMBER}"
         DOCKER_COMPOSE_FILE = 'docker-compose.yml'
         DOCKER_HUB_USERNAME = 'brahim20255'
-        DOCKER_HUB_PASSWORD = 'Lifeisgoodbrahim@@'
+        DOCKER_HUB_PASSWORD = 'Lifeisgoodbrahim@@'  // ⚠️ من الأفضل استخدام credentials بدلًا من تخزين الباسورد هنا
         MAVEN_HOME = tool name: 'M3', type: 'maven'
         JAVA_HOME = tool name: 'jdk17', type: 'jdk'
         PATH = "${MAVEN_HOME}/bin:${JAVA_HOME}/bin:${env.PATH}"
@@ -20,12 +20,13 @@ pipeline {
     }
 
     stages {
-           stage('Checkout Code') {
+
+        stage('Checkout Code') {
             steps {
                 checkout scm
             }
         }
-      
+
         stage('Build All Maven Projects') {
             steps {
                 script {
@@ -43,7 +44,7 @@ pipeline {
             }
         }
 
-     stage('SonarQube Analysis') {
+        stage('SonarQube Analysis') {
             steps {
                 script {
                     def services = [
@@ -52,7 +53,6 @@ pipeline {
                         "login-service", "contact-service"
                     ]
                     services.each { service ->
-                        echo "Analyzing project: ${service}"
                         def timestamp = new Date().format("yyyyMMdd-HHmmss", TimeZone.getTimeZone('UTC'))
                         def projectKey = "${service}-${timestamp}"
                         dir(service) {
@@ -73,8 +73,8 @@ pipeline {
                         "formation-service", "order-service", "notification-service",
                         "login-service", "contact-service"
                     ]
-                    projects.each { projectName ->
-                        dir(projectName) {
+                    projects.each { project ->
+                        dir(project) {
                             nexusArtifactUploader(
                                 nexusVersion: 'nexus3',
                                 protocol: 'http',
@@ -84,9 +84,9 @@ pipeline {
                                 repository: 'maven-snapshots',
                                 credentialsId: 'nexus-credentials',
                                 artifacts: [[
-                                    artifactId: projectName,
+                                    artifactId: project,
                                     classifier: '',
-                                    file: "target/${projectName}-${version}.jar",
+                                    file: "target/${project}-${version}.jar",
                                     type: 'jar'
                                 ]]
                             )
@@ -95,16 +95,6 @@ pipeline {
                 }
             }
         }
-
-     
-       
- 
-  
-
-    stages {
-   
-
-
 
         stage('Build Docker Images') {
             steps {
@@ -136,8 +126,6 @@ pipeline {
             steps {
                 script {
                     withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', passwordVariable: 'DOCKER_HUB_PASSWORD', usernameVariable: 'DOCKER_HUB_USERNAME')]) {
-
-                        // Secure login
                         bat "echo ${DOCKER_HUB_PASSWORD} | docker login -u ${DOCKER_HUB_USERNAME} --password-stdin"
 
                         def services = [
@@ -146,20 +134,17 @@ pipeline {
                             "login-service", "contact-service"
                         ]
 
-                        services.each { serviceName ->
-                            def localTag = "${serviceName}:${DOCKER_IMAGE_VERSION}"
-                            def remoteTag = "${DOCKER_HUB_USERNAME}/${serviceName}:${DOCKER_IMAGE_VERSION}"
-                            def remoteLatest = "${DOCKER_HUB_USERNAME}/${serviceName}:latest"
+                        services.each { service ->
+                            def localTag = "${service}:${DOCKER_IMAGE_VERSION}"
+                            def remoteTag = "${DOCKER_HUB_USERNAME}/${service}:${DOCKER_IMAGE_VERSION}"
+                            def remoteLatest = "${DOCKER_HUB_USERNAME}/${service}:latest"
 
                             bat "docker tag ${localTag} ${remoteTag}"
                             bat "docker tag ${localTag} ${remoteLatest}"
 
                             catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
                                 retry(3) {
-                                    echo "Pushing ${remoteTag}..."
                                     bat "docker push ${remoteTag}"
-
-                                    echo "Pushing ${remoteLatest}..."
                                     bat "docker push ${remoteLatest}"
                                 }
                             }
@@ -167,10 +152,7 @@ pipeline {
                     }
                 }
             }
-              }
- 
-
-
+        }
 
         stage('Deploy to Kubernetes') {
             steps {
@@ -185,5 +167,8 @@ pipeline {
                 }
             }
         }
-    }
+
+    } 
+
+
 }
