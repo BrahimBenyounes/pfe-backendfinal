@@ -1,5 +1,4 @@
 
-# مرحلة البناء
 FROM maven:3.6-openjdk-17 AS builder
 
 COPY src /home/app/src
@@ -14,7 +13,6 @@ FROM openjdk:17-alpine
 
 COPY target/*.jar contact-service.jar
 
-# تشغيل التطبيق
 ENTRYPOINT ["java", "-jar", "/contact-service.jar"]
 
 
